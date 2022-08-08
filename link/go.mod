@@ -1,4 +1,4 @@
-module mrgeek-link
+module github.com/omarahm3/gogo/link
 
 go 1.19
 
