@@ -1,45 +1,27 @@
 package sitemap
 
 import (
-	"encoding/json"
+	"fmt"
 	"io"
-	"log"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/omarahm3/gogo/link/link"
 	"golang.org/x/net/html"
 )
 
+type empty struct{}
+
 var (
 	baseLink       string
 	traversedLinks map[string]bool
 )
 
-func getContent(link string) string {
-	response, err := http.Get(link)
+func links(r io.Reader, base string) []string {
+	var result []string
 
-	if err != nil {
-		panic(err)
-	}
-
-	defer response.Body.Close()
-
-	body, err := io.ReadAll(response.Body)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return string(body)
-}
-
-func parseLink(baseLink string) map[string]bool {
-  result := make(map[string]bool)
-
-	c := getContent(baseLink)
-
-	n, err := html.Parse(strings.NewReader(c))
+	n, err := html.Parse(r)
 
 	if err != nil {
 		panic(err)
@@ -48,75 +30,107 @@ func parseLink(baseLink string) map[string]bool {
 	links := link.Parse(n)
 
 	for _, link := range links {
-		if _, ok := result[link.Href]; ok {
+		if _, ok := traversedLinks[link.Href]; ok {
 			continue
 		}
 
-		result[link.Href] = true
+		switch {
+		case strings.HasPrefix(link.Href, "/"):
+			result = append(result, fmt.Sprintf("%s%s", base, link.Href))
+		case strings.HasPrefix(link.Href, "http"):
+			// TODO Check if host is also equal baseUrl host
+			result = append(result, link.Href)
+		}
+
+		traversedLinks[link.Href] = true
 	}
 
-  return result
+	return result
 }
 
-func traverse(baseLink, link string) map[string]bool {
-  outputLinks := parseLink(link)
-
-	for outputLink := range outputLinks {
-		log.Printf("traverse:: Parsed link: [%s]\n", outputLink)
-
-		validLink, err := GenerateValidUrl(baseLink, outputLink)
-
-		if err != nil {
-			continue
-		}
-
-		if _, ok := traversedLinks[*validLink]; ok {
-			continue
-		}
-
-		traversedLinks[*validLink] = true
+func withPrefix(pfx string) func(string) bool {
+	return func(s string) bool {
+		return strings.HasPrefix(s, pfx)
 	}
-
-	return traversedLinks
 }
 
-func merge(m1, m2 map[string]bool) map[string]bool {
-	for k, v := range m1 {
-		m2[k] = v
+func filter(links []string, cb func(string) bool) []string {
+	var ret []string
+
+	for _, link := range links {
+		if cb(link) {
+			ret = append(ret, link)
+		}
 	}
 
-	return m2
+	return ret
 }
 
-func Generate(firstLink string) string {
-	baseLink = firstLink
-	traversedLinks = map[string]bool{}
+func get(u string) []string {
+	response, err := http.Get(u)
 
-  // Initial link
-  outputLinks := parseLink(firstLink)
-
-  // Loop over initial link links'
-	for outputLink := range outputLinks {
-		log.Printf("Generate::  Output link: [%s]\n", outputLink)
-
-		validLink, err := GenerateValidUrl(firstLink, outputLink)
-
-		if err != nil {
-      log.Printf("Generate:: ﲅ Ignoring link because [%s]\n", err.Error())
-			continue
-		}
-
-		if _, ok := traversedLinks[*validLink]; ok {
-      log.Println("Generate:: ﲅ Ignoring link because it is duplicated")
-			continue
-		}
-
-		traversedLinks[*validLink] = true
-		log.Printf("Generate::  Valid link: [%s]\n", *validLink)
-		traversedLinks = merge(traverse(firstLink, *validLink), traversedLinks)
+	if err != nil {
+		panic(err)
 	}
 
-	jsonString, _ := json.Marshal(traversedLinks)
+	defer response.Body.Close()
 
-	return string(jsonString)
+	baseUrl := &url.URL{
+		Host:   response.Request.URL.Host,
+		Scheme: response.Request.URL.Scheme,
+	}
+
+	baseLink = baseUrl.String()
+
+	return filter(links(response.Body, baseLink), withPrefix(baseLink))
+}
+
+func traverse(u string, depth int) []string {
+	seen := make(map[string]empty)
+
+	var q map[string]empty
+
+	nq := map[string]empty{
+		u: empty{},
+	}
+
+	for i := 0; i <= depth; i++ {
+		q, nq = nq, make(map[string]empty)
+
+    if len(q) == 0 {
+      break
+    }
+
+		for url := range q {
+			if _, ok := seen[url]; ok {
+				continue
+			}
+
+			seen[url] = empty{}
+
+			for _, link := range get(u) {
+				nq[link] = empty{}
+			}
+		}
+	}
+
+	ret := make([]string, 0, len(seen))
+
+	for url := range seen {
+		ret = append(ret, url)
+	}
+
+	return ret
+}
+
+func Generate(startLink string, depth int) string {
+	traversedLinks = make(map[string]bool)
+
+	pages := traverse(startLink, depth)
+
+	for _, page := range pages {
+		fmt.Println(page)
+	}
+
+	return ""
 }

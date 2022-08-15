@@ -7,7 +7,10 @@ import (
 	"github.com/omarahm3/gogo/sitemap/sitemap"
 )
 
-var l = flag.String("link", "", "Website link")
+var (
+	url   = flag.String("link", "", "Website link")
+	depth = flag.Int("depth", 3, "Maximum depth")
+)
 
 func check(e error) {
 	if e != nil {
@@ -18,11 +21,11 @@ func check(e error) {
 func main() {
 	flag.Parse()
 
-	if *l == "" {
+	if *url == "" {
 		panic("valid URL is needed")
 	}
 
-	content := sitemap.Generate(*l)
+	content := sitemap.Generate(*url, *depth)
 
 	fmt.Println(content)
 }
