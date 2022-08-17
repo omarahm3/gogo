@@ -1,9 +1,9 @@
 package db
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"errors"
-	"strconv"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -98,11 +98,11 @@ func CreateTask(task string) error {
 			return err
 		}
 
-		return b.Put([]byte(strconv.Itoa(t.ID)), buf)
+		return b.Put(itob(t.ID), buf)
 	})
 }
 
-func DeleteTask(k string) error {
+func DeleteTask(k int) error {
 	if db == nil {
 		return errors.New("database is not initialized")
 	}
@@ -110,6 +110,16 @@ func DeleteTask(k string) error {
 	return db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucket)
 
-		return b.Delete([]byte(k))
+		return b.Delete(itob(k))
 	})
+}
+
+func itob(v int) []byte {
+  b := make([]byte, 8)
+  binary.BigEndian.PutUint64(b, uint64(v))
+  return b
+}
+
+func btoi(b []byte) int {
+  return int(binary.BigEndian.Uint64(b))
 }
