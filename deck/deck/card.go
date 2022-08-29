@@ -104,6 +104,19 @@ func Shuffle(deck []Card) []Card {
 	return ret
 }
 
+func Jokers(n int) func([]Card) []Card {
+	return func(deck []Card) []Card {
+		for i := 0; i < n; i++ {
+			deck = append(deck, Card{
+				Rank: Rank(i),
+				Suit: Joker,
+			})
+		}
+
+		return deck
+	}
+}
+
 func absoluteRank(c Card) int {
 	return int(c.Suit)*int(maxRank) + int(c.Rank)
 }

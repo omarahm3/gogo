@@ -47,3 +47,18 @@ func TestShuffle(t *testing.T) {
 		t.Error("cards are not shuffled")
 	}
 }
+
+func TestJookers(t *testing.T) {
+	cards := New(Jokers(3))
+	count := 0
+
+	for _, c := range cards {
+		if c.Suit == Joker {
+			count++
+		}
+	}
+
+	if count != 3 {
+		t.Errorf("expected 3 jokers, got %d", count)
+	}
+}
