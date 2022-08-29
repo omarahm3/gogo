@@ -93,11 +93,11 @@ func Sort(less func(deck []Card) func(i, j int) bool) func([]Card) []Card {
 	}
 }
 
+var shuffleRand = rand.New(rand.NewSource(time.Now().Unix()))
+
 func Shuffle(deck []Card) []Card {
 	ret := make([]Card, len(deck))
-	r := rand.New(rand.NewSource(time.Now().Unix()))
-
-	for i, j := range r.Perm(len(deck)) {
+	for i, j := range shuffleRand.Perm(len(deck)) {
 		ret[i] = deck[j]
 	}
 
