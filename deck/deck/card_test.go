@@ -78,6 +78,11 @@ func TestFilter(t *testing.T) {
 func TestDeck(t *testing.T) {
 	cards := New(Deck(3))
 	count := 0
+  expectedLength := 13 * 4 * 3
+
+  if len(cards) != expectedLength {
+    t.Errorf("expected deck of length %d got %d", expectedLength, len(cards))
+  }
 
 	for _, c := range cards {
 		if c.Rank == Ace {
