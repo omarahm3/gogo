@@ -62,3 +62,15 @@ func TestJookers(t *testing.T) {
 		t.Errorf("expected 3 jokers, got %d", count)
 	}
 }
+
+func TestFilter(t *testing.T) {
+	cards := New(Filter(func(card Card) bool {
+		return card.Rank != Ace && card.Suit == Spade
+	}))
+
+	for _, c := range cards {
+		if c.Rank == Ace && c.Suit == Spade {
+			t.Error("Ace of spade is not filtered out of cards")
+		}
+	}
+}

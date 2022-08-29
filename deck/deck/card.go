@@ -117,6 +117,20 @@ func Jokers(n int) func([]Card) []Card {
 	}
 }
 
+func Filter(filter func(card Card) bool) func([]Card) []Card {
+	return func(deck []Card) []Card {
+		var ret []Card
+
+		for _, c := range deck {
+			if !filter(c) {
+				ret = append(ret, c)
+			}
+		}
+
+		return ret
+	}
+}
+
 func absoluteRank(c Card) int {
 	return int(c.Suit)*int(maxRank) + int(c.Rank)
 }
