@@ -33,13 +33,17 @@ type Options struct {
 type Game struct {
 	nDecks          int
 	nHands          int
-	deck            []deck.Card
-	state           state
-	player          []deck.Card
-	dealer          []deck.Card
-	dealerAI        AI
-	balance         int
 	blackJackPayout float64
+
+	deck  []deck.Card
+	state state
+
+	player    []deck.Card
+	playerBet int
+	balance   int
+
+	dealer   []deck.Card
+	dealerAI AI
 }
 
 func New(opts Options) Game {
@@ -83,10 +87,13 @@ func (g *Game) Play(ai AI) int {
 	minNumOfCardsTillShuffle := 52 * g.nDecks / 3
 
 	for i := 0; i < g.nHands; i++ {
+		shuffled := false
 		if len(g.deck) < minNumOfCardsTillShuffle {
 			shuffle(g)
+			shuffled = true
 		}
 
+		bet(g, ai, shuffled)
 		deal(g)
 
 		for g.state == statePlayerTurn {
@@ -177,23 +184,25 @@ func deal(g *Game) {
 
 func endHand(g *Game, ai AI) {
 	pScore, dScore := Score(g.player...), Score(g.dealer...)
+	winnings := g.playerBet
 
 	switch {
 	case pScore > MAX_SCORE:
 		fmt.Println("You lose")
-		g.balance--
+		winnings *= -1
 	case dScore > MAX_SCORE:
 		fmt.Println("Dealer lost")
-		g.balance++
 	case pScore > dScore:
 		fmt.Println("You win!")
-		g.balance++
 	case dScore > pScore:
 		fmt.Println("You lose")
-		g.balance--
+		winnings *= -1
 	case dScore == pScore:
 		fmt.Println("Draw")
+    winnings = 0
 	}
+
+  g.balance += winnings
 
 	ai.Result([][]deck.Card{g.player}, g.dealer)
 
@@ -223,6 +232,10 @@ func minimumScore(hand ...deck.Card) int {
 func dealerCanDraw(dealer []deck.Card) bool {
 	dealerScore := Score(dealer...)
 	return dealerScore <= 16 || (dealerScore == 17 && Soft(dealer...))
+}
+
+func bet(g *Game, ai AI, shuffled bool) {
+	g.playerBet = ai.Bet(shuffled)
 }
 
 func minimum(a, b int) int {
