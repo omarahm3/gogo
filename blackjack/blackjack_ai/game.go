@@ -7,8 +7,10 @@ import (
 )
 
 const (
-	MAX_SCORE = 21
-  NUMBER_OF_HANDS = 2
+	MAX_SCORE                = 21
+	DEFAULT_NUMBER_OF_DECKS  = 3
+	DEFAULT_NUMBER_OF_HANDS  = 100
+	DEFAULT_BLACKJACK_PAYOUT = 1.5
 )
 
 type state int8
@@ -16,18 +18,53 @@ type state int8
 type Move func(*Game)
 
 const (
-	statePlayerTurn state = iota
+	stateBet state = iota
+	statePlayerTurn
 	stateDealerTurn
 	stateHandOver
 )
 
+type Options struct {
+	BlackJackPayout float64
+	Decks           int
+	Hands           int
+}
+
 type Game struct {
-	deck     []deck.Card
-	state    state
-	player   []deck.Card
-	dealer   []deck.Card
-	dealerAI AI
-	balance  int
+	nDecks          int
+	nHands          int
+	deck            []deck.Card
+	state           state
+	player          []deck.Card
+	dealer          []deck.Card
+	dealerAI        AI
+	balance         int
+	blackJackPayout float64
+}
+
+func New(opts Options) Game {
+	g := Game{
+		state:    statePlayerTurn,
+		dealerAI: dealerAI{},
+	}
+
+	if opts.Hands == 0 {
+		opts.Hands = DEFAULT_NUMBER_OF_HANDS
+	}
+
+	if opts.Decks == 0 {
+		opts.Decks = DEFAULT_NUMBER_OF_DECKS
+	}
+
+	if opts.BlackJackPayout == 0 {
+		opts.BlackJackPayout = DEFAULT_BLACKJACK_PAYOUT
+	}
+
+	g.nDecks = opts.Decks
+	g.nHands = opts.Hands
+	g.blackJackPayout = opts.BlackJackPayout
+
+	return g
 }
 
 func (g *Game) currentPlayer() *[]deck.Card {
@@ -42,8 +79,14 @@ func (g *Game) currentPlayer() *[]deck.Card {
 }
 
 func (g *Game) Play(ai AI) int {
-	shuffle(g)
-	for i := 0; i < NUMBER_OF_HANDS; i++ {
+	g.deck = nil
+	minNumOfCardsTillShuffle := 52 * g.nDecks / 3
+
+	for i := 0; i < g.nHands; i++ {
+		if len(g.deck) < minNumOfCardsTillShuffle {
+			shuffle(g)
+		}
+
 		deal(g)
 
 		for g.state == statePlayerTurn {
@@ -67,13 +110,6 @@ func (g *Game) Play(ai AI) int {
 	}
 
 	return g.balance
-}
-
-func New() Game {
-	return Game{
-		state:    statePlayerTurn,
-		dealerAI: dealerAI{},
-	}
 }
 
 func MoveHit(g *Game) {
@@ -120,7 +156,7 @@ func Soft(hand ...deck.Card) bool {
 }
 
 func shuffle(g *Game) {
-	g.deck = deck.New(deck.Deck(3), deck.Shuffle)
+	g.deck = deck.New(deck.Deck(g.nDecks), deck.Shuffle)
 }
 
 func deal(g *Game) {
