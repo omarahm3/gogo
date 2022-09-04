@@ -162,6 +162,10 @@ func Soft(hand ...deck.Card) bool {
 	return minScore != score
 }
 
+func Blackjack(hand ...deck.Card) bool {
+	return len(hand) == 2 && Score(hand...) == MAX_SCORE
+}
+
 func shuffle(g *Game) {
 	g.deck = deck.New(deck.Deck(g.nDecks), deck.Shuffle)
 }
@@ -184,25 +188,25 @@ func deal(g *Game) {
 
 func endHand(g *Game, ai AI) {
 	pScore, dScore := Score(g.player...), Score(g.dealer...)
+	pBlackjack, dBlackjack := Blackjack(g.player...), Blackjack(g.dealer...)
 	winnings := g.playerBet
 
 	switch {
+	case pBlackjack && dBlackjack:
+		winnings = 0
 	case pScore > MAX_SCORE:
-		fmt.Println("You lose")
 		winnings *= -1
 	case dScore > MAX_SCORE:
-		fmt.Println("Dealer lost")
+		// win
 	case pScore > dScore:
-		fmt.Println("You win!")
+		// win
 	case dScore > pScore:
-		fmt.Println("You lose")
 		winnings *= -1
-	case dScore == pScore:
 		fmt.Println("Draw")
-    winnings = 0
+		winnings = 0
 	}
 
-  g.balance += winnings
+	g.balance += winnings
 
 	ai.Result([][]deck.Card{g.player}, g.dealer)
 
