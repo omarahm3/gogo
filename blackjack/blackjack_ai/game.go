@@ -1,8 +1,6 @@
 package blackjackai
 
 import (
-	"fmt"
-
 	"github.com/omarahm3/gogo/deck/deck"
 )
 
@@ -95,6 +93,11 @@ func (g *Game) Play(ai AI) int {
 
 		bet(g, ai, shuffled)
 		deal(g)
+
+		if Blackjack(g.dealer...) {
+			endHand(g, ai)
+			continue
+		}
 
 		for g.state == statePlayerTurn {
 			// So that in case the ai.Play is modifying the hand
@@ -194,6 +197,10 @@ func endHand(g *Game, ai AI) {
 	switch {
 	case pBlackjack && dBlackjack:
 		winnings = 0
+	case dBlackjack:
+		winnings *= -1
+	case pBlackjack:
+		winnings *= int(g.blackJackPayout)
 	case pScore > MAX_SCORE:
 		winnings *= -1
 	case dScore > MAX_SCORE:
@@ -202,7 +209,6 @@ func endHand(g *Game, ai AI) {
 		// win
 	case dScore > pScore:
 		winnings *= -1
-		fmt.Println("Draw")
 		winnings = 0
 	}
 

@@ -3,18 +3,18 @@ package blackjackai
 import "testing"
 
 func TestHit(t *testing.T) {
-	var gs Game
-	gs = shuffle(gs)
-	gs = deal(gs)
+	game := New(Options{Hands: 1, Decks: 1})
+	shuffle(&game)
+	deal(&game)
 
-	if gs.state != statePlayerTurn {
-		t.Errorf("expected game state to be player's turn, got %d", gs.state)
+	if game.state != statePlayerTurn {
+		t.Errorf("expected game state to be player's turn, got %d", game.state)
 	}
 
-	gs = MoveHit(gs)
+	MoveHit(&game)
 
 	expectedLength := 3
-	currentLength := len(gs.player)
+	currentLength := len(game.player)
 
 	if currentLength != expectedLength {
 		t.Errorf("expected number of cards to be: %d, got: %d", expectedLength, currentLength)
