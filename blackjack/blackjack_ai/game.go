@@ -17,6 +17,8 @@ var (
 	errBust             = errors.New("hand score exceeded 21")
 	errLessThanTwoCards = errors.New("hand has less than 2 cards")
 	errInvalidState     = errors.New("invalid state")
+	errNotTwoCards      = errors.New("you don't have 2 cards in your hand")
+	errMustBeSameRank   = errors.New("both cards must have the same rank")
 )
 
 type state int8
@@ -185,6 +187,27 @@ func MoveDouble(g *Game) error {
 	g.playerBet *= 2
 	MoveHit(g)
 	return MoveStand(g)
+}
+
+func MoveSplit(g *Game) error {
+	cards := *g.currentHand()
+
+	if len(cards) != 2 {
+		return errNotTwoCards
+	}
+
+	if cards[0].Rank != cards[1].Rank {
+		return errMustBeSameRank
+	}
+
+	g.player = append(g.player, hand{
+		cards: []deck.Card{cards[1]},
+		bet:   g.player[g.handIndex].bet,
+	})
+
+	cards = cards[:1]
+
+	return nil
 }
 
 func Score(hand ...deck.Card) int {
