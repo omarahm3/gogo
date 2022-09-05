@@ -1,6 +1,8 @@
 package blackjackai
 
 import (
+	"errors"
+
 	"github.com/omarahm3/gogo/deck/deck"
 )
 
@@ -11,9 +13,14 @@ const (
 	DEFAULT_BLACKJACK_PAYOUT = 1.5
 )
 
+var (
+	errBust             = errors.New("hand score exceeded 21")
+	errLessThanTwoCards = errors.New("hand has less than 2 cards")
+)
+
 type state int8
 
-type Move func(*Game)
+type Move func(*Game) error
 
 const (
 	stateBet state = iota
@@ -105,7 +112,15 @@ func (g *Game) Play(ai AI) int {
 			hand := make([]deck.Card, len(g.player))
 			copy(hand, g.player)
 			move := ai.Play(hand, g.dealer[0])
-			move(g)
+			err := move(g)
+
+			switch err {
+			case nil:
+			case errBust:
+				MoveStand(g)
+			default:
+				panic(err)
+			}
 		}
 
 		for g.state == stateDealerTurn {
@@ -122,7 +137,7 @@ func (g *Game) Play(ai AI) int {
 	return g.balance
 }
 
-func MoveHit(g *Game) {
+func MoveHit(g *Game) error {
 	hand := g.currentPlayer()
 
 	var card deck.Card
@@ -131,13 +146,25 @@ func MoveHit(g *Game) {
 	addCard(hand, card)
 
 	if Score(*hand...) > 21 {
-		MoveStand(g)
+		return errBust
 	}
+	return nil
 }
 
-func MoveStand(g *Game) {
+func MoveStand(g *Game) error {
 	// Incrementing the state here is needed since states are ordered on the declaration "iota"
 	g.state++
+	return nil
+}
+
+func MoveDouble(g *Game) error {
+	if len(g.player) != 2 {
+		return errLessThanTwoCards
+	}
+
+	g.playerBet *= 2
+	MoveHit(g)
+	return MoveStand(g)
 }
 
 func Score(hand ...deck.Card) int {
