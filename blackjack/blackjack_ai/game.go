@@ -16,6 +16,7 @@ const (
 var (
 	errBust             = errors.New("hand score exceeded 21")
 	errLessThanTwoCards = errors.New("hand has less than 2 cards")
+	errInvalidState     = errors.New("invalid state")
 )
 
 type state int8
@@ -35,6 +36,11 @@ type Options struct {
 	Hands           int
 }
 
+type hand struct {
+	cards []deck.Card
+	bet   int
+}
+
 type Game struct {
 	nDecks          int
 	nHands          int
@@ -43,7 +49,8 @@ type Game struct {
 	deck  []deck.Card
 	state state
 
-	player    []deck.Card
+	player    []hand
+	handIndex int
 	playerBet int
 	balance   int
 
@@ -76,10 +83,10 @@ func New(opts Options) Game {
 	return g
 }
 
-func (g *Game) currentPlayer() *[]deck.Card {
+func (g *Game) currentHand() *[]deck.Card {
 	switch g.state {
 	case statePlayerTurn:
-		return &g.player
+		return &g.player[g.handIndex].cards
 	case stateDealerTurn:
 		return &g.dealer
 	default:
@@ -102,22 +109,23 @@ func (g *Game) Play(ai AI) int {
 		deal(g)
 
 		if Blackjack(g.dealer...) {
-			endHand(g, ai)
+			endRound(g, ai)
 			continue
 		}
 
 		for g.state == statePlayerTurn {
 			// So that in case the ai.Play is modifying the hand
 			// We copy this so that it won't modify our game state
-			hand := make([]deck.Card, len(g.player))
-			copy(hand, g.player)
+			hand := make([]deck.Card, len(*g.currentHand()))
+			copy(hand, *g.currentHand())
 			move := ai.Play(hand, g.dealer[0])
 			err := move(g)
 
 			switch err {
-			case nil:
 			case errBust:
 				MoveStand(g)
+			case nil:
+				// do nothing
 			default:
 				panic(err)
 			}
@@ -131,14 +139,14 @@ func (g *Game) Play(ai AI) int {
 			move(g)
 		}
 
-		endHand(g, ai)
+		endRound(g, ai)
 	}
 
 	return g.balance
 }
 
 func MoveHit(g *Game) error {
-	hand := g.currentPlayer()
+	hand := g.currentHand()
 
 	var card deck.Card
 
@@ -152,9 +160,21 @@ func MoveHit(g *Game) error {
 }
 
 func MoveStand(g *Game) error {
-	// Incrementing the state here is needed since states are ordered on the declaration "iota"
-	g.state++
-	return nil
+	if g.state == stateDealerTurn {
+		g.state++
+		return nil
+	}
+
+	if g.state == statePlayerTurn {
+		g.handIndex++
+		if g.handIndex >= len(g.player) {
+			// Incrementing the state here is needed since states are ordered on the declaration "iota"
+			g.state++
+		}
+		return nil
+	}
+
+	return errInvalidState
 }
 
 func MoveDouble(g *Game) error {
@@ -201,47 +221,60 @@ func shuffle(g *Game) {
 }
 
 func deal(g *Game) {
-	g.player = make([]deck.Card, 0, 5)
+	playerHand := make([]deck.Card, 0, 5)
 	g.dealer = make([]deck.Card, 0, 5)
 
 	var card deck.Card
 
 	for i := 0; i < 2; i++ {
 		card, g.deck = draw(g.deck)
-		addCard(&g.player, card)
+		addCard(&playerHand, card)
 		card, g.deck = draw(g.deck)
 		addCard(&g.dealer, card)
 	}
 
+	g.player = []hand{
+		{
+			cards: playerHand,
+			bet:   g.playerBet,
+		},
+	}
 	g.state = statePlayerTurn
 }
 
-func endHand(g *Game, ai AI) {
-	pScore, dScore := Score(g.player...), Score(g.dealer...)
-	pBlackjack, dBlackjack := Blackjack(g.player...), Blackjack(g.dealer...)
-	winnings := g.playerBet
+func endRound(g *Game, ai AI) {
+	dScore := Score(g.dealer...)
+	dBlackjack := Blackjack(g.dealer...)
+	allHands := make([][]deck.Card, len(g.player))
 
-	switch {
-	case pBlackjack && dBlackjack:
-		winnings = 0
-	case dBlackjack:
-		winnings *= -1
-	case pBlackjack:
-		winnings *= int(g.blackJackPayout)
-	case pScore > MAX_SCORE:
-		winnings *= -1
-	case dScore > MAX_SCORE:
-		// win
-	case pScore > dScore:
-		// win
-	case dScore > pScore:
-		winnings *= -1
-		winnings = 0
+	for i, hand := range g.player {
+		cards := hand.cards
+		allHands[i] = cards
+		winnings := hand.bet
+		pScore, pBlackjack := Score(cards...), Blackjack(cards...)
+
+		switch {
+		case pBlackjack && dBlackjack:
+			winnings = 0
+		case dBlackjack:
+			winnings *= -1
+		case pBlackjack:
+			winnings *= int(g.blackJackPayout)
+		case pScore > MAX_SCORE:
+			winnings *= -1
+		case dScore > MAX_SCORE:
+			// win
+		case pScore > dScore:
+			// win
+		case dScore > pScore:
+			winnings *= -1
+			winnings = 0
+		}
+
+		g.balance += winnings
 	}
 
-	g.balance += winnings
-
-	ai.Result([][]deck.Card{g.player}, g.dealer)
+	ai.Result(allHands, g.dealer)
 
 	g.player = nil
 	g.dealer = nil

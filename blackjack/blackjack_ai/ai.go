@@ -9,7 +9,7 @@ import (
 const BET_AMOUNT = 10
 
 type AI interface {
-	Result(hand [][]deck.Card, dealer []deck.Card)
+	Result(hands [][]deck.Card, dealer []deck.Card)
 	Play(hand []deck.Card, dealer deck.Card) Move
 	Bet(shuffled bool) int
 }
@@ -42,8 +42,10 @@ func (ai humanAI) Play(hand []deck.Card, dealer deck.Card) Move {
 }
 
 // [][]deck.Card because we will be supporting splitting, so player could potentially have multiple hands
-func (ai humanAI) Result(hand [][]deck.Card, dealer []deck.Card) {
-	fmt.Println("Player Cards: ", hand)
+func (ai humanAI) Result(hands [][]deck.Card, dealer []deck.Card) {
+	for _, hand := range hands {
+		fmt.Println("\tPlayer hand: ", hand)
+	}
 	fmt.Println("Dealer Cards: ", dealer)
 }
 
@@ -72,4 +74,4 @@ func (ai dealerAI) Bet(shuffled bool) int {
 	return BET_AMOUNT
 }
 
-func (ai dealerAI) Result(hand [][]deck.Card, dealer []deck.Card) {}
+func (ai dealerAI) Result(hands [][]deck.Card, dealer []deck.Card) {}
