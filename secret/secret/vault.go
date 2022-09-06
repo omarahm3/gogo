@@ -3,10 +3,8 @@ package secret
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/omarahm3/gogo/secret/encrypt"
@@ -23,7 +21,7 @@ func (v *Vault) Get(key string) (string, error) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	err := v.loadKeyValues()
+	err := v.load()
 	if err != nil {
 		return "", err
 	}
@@ -40,17 +38,22 @@ func (v *Vault) Set(key, value string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	err := v.loadKeyValues()
+	err := v.load()
 	if err != nil {
 		return err
 	}
 
 	v.keyValues[key] = value
 
-	return v.saveKeyValues()
+	return v.save()
 }
 
-func (v *Vault) loadKeyValues() error {
+func (v *Vault) readKeyValues(r io.Reader) error {
+	dec := json.NewDecoder(r)
+	return dec.Decode(&v.keyValues)
+}
+
+func (v *Vault) load() error {
 	f, err := os.Open(v.filepath)
 
 	if err != nil && os.IsNotExist(err) {
@@ -61,44 +64,33 @@ func (v *Vault) loadKeyValues() error {
 	}
 
 	defer f.Close()
-	var sb strings.Builder
 
-	_, err = io.Copy(&sb, f)
+	r, err := encrypt.DecryptReader(v.encodingKey, f)
 	if err != nil {
 		return err
 	}
 
-	str, err := encrypt.Decrypt(v.encodingKey, sb.String())
-	r := strings.NewReader(str)
-
-	dec := json.NewDecoder(r)
-	err = dec.Decode(&v.keyValues)
-
-	return err
+	return v.readKeyValues(r)
 }
 
-func (v *Vault) saveKeyValues() error {
-	var sb strings.Builder
+func (v *Vault) writeKeyValues(w io.Writer) error {
+	enc := json.NewEncoder(w)
+	return enc.Encode(&v.keyValues)
+}
 
-	enc := json.NewEncoder(&sb)
-	err := enc.Encode(v.keyValues)
-	if err != nil {
-		return err
-	}
-
-	str, err := encrypt.Encrypt(v.encodingKey, sb.String())
-	if err != nil {
-		return err
-	}
-
+func (v *Vault) save() error {
 	f, err := os.OpenFile(v.filepath, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	_, err = fmt.Fprintf(f, str)
-	return err
+	w, err := encrypt.EncryptWriter(v.encodingKey, f)
+	if err != nil {
+		return err
+	}
+
+	return v.writeKeyValues(w)
 }
 
 func File(key, filepath string) *Vault {
