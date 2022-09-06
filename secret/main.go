@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	v := secret.Memory("some key")
+	v := secret.File("some key", ".vault")
 	v.Set("test", "hello")
 	value, err := v.Get("test")
 	fmt.Println(value, err)

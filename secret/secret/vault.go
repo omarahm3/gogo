@@ -101,13 +101,6 @@ func (v *Vault) saveKeyValues() error {
 	return err
 }
 
-func Memory(key string) Vault {
-	return Vault{
-		encodingKey: key,
-		keyValues:   make(map[string]string),
-	}
-}
-
 func File(key, filepath string) *Vault {
 	return &Vault{
 		encodingKey: key,
