@@ -8,13 +8,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var getCommand = &cobra.Command{
-	Use:   "get",
-	Short: "Get a secret value from vault",
-	Run:   get,
+var deleteCommand = &cobra.Command{
+	Use:   "del",
+	Short: "Delete a secret from vaul",
+	Run:   del,
 }
 
-func get(cmd *cobra.Command, args []string) {
+func del(cmd *cobra.Command, args []string) {
 	if encodingKey == "" {
 		fmt.Println("key cannot be empty")
 		os.Exit(1)
@@ -28,12 +28,12 @@ func get(cmd *cobra.Command, args []string) {
 
 	v := secret.File(encodingKey, vaultPath())
 
-	value, err := v.Get(key)
+	err := v.Delete(key)
 	check(err, "unknown error occurred, probably value doesn't exist")
 
-	fmt.Printf("%s=%s\n", key, value)
+	fmt.Printf("Key [%s] was deleted\n", key)
 }
 
 func init() {
-	rootCmd.AddCommand(getCommand)
+	rootCmd.AddCommand(deleteCommand)
 }

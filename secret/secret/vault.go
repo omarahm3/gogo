@@ -48,6 +48,20 @@ func (v *Vault) Set(key, value string) error {
 	return v.save()
 }
 
+func (v *Vault) Delete(key string) error {
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
+
+	err := v.load()
+	if err != nil {
+		return err
+	}
+
+	delete(v.keyValues, key)
+
+	return v.save()
+}
+
 func (v *Vault) readKeyValues(r io.Reader) error {
 	dec := json.NewDecoder(r)
 	return dec.Decode(&v.keyValues)
